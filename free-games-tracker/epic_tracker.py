@@ -24,7 +24,7 @@ def parse_date(date_str):
 
 def get_epic_freebies():
     games = []
-    params = {"locale": "ru-RU", "country": "RU"}
+    params = {"locale": "en-US", "country": "US"}
     resp = requests.get(API_URL, params=params, headers=HEADERS, timeout=15)
     resp.raise_for_status()
     data = resp.json()
@@ -47,26 +47,18 @@ def get_epic_freebies():
 
         is_free = False
         end_date = None
-        orig_price = 0
 
         for offer_set in current_offers:
             for offer in offer_set.get("promotionalOffers", []):
-                price_info = item.get("price", {}).get("totalPrice", {})
-                orig_price = price_info.get("originalPrice", 0)
-                disc_price = price_info.get("discountPrice", 0)
                 disc_pct = offer.get("discountSetting", {}).get("discountPercentage")
-
-                if disc_pct == 0 and orig_price > 0:
-                    is_free = True
-                elif orig_price > 0 and disc_price == 0:
-                    is_free = True
-
-                if is_free:
-                    end = offer.get("endDate")
-                    if end:
-                        parsed = parse_date(end)
-                        if parsed and (not end_date or parsed < end_date):
-                            end_date = parsed
+                if disc_pct != 0:
+                    continue
+                is_free = True
+                end = offer.get("endDate")
+                if end:
+                    parsed = parse_date(end)
+                    if parsed and (not end_date or parsed < end_date):
+                        end_date = parsed
 
         if not is_free:
             continue
@@ -89,7 +81,7 @@ def get_epic_freebies():
             "url": STORE_URL.format(slug),
             "image": image,
             "end_date": end_date,
-            "original_price": orig_price,
+            "original_price": item.get("price", {}).get("totalPrice", {}).get("originalPrice", 0),
         })
 
     return games
