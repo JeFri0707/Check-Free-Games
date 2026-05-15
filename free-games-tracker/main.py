@@ -34,44 +34,42 @@ def main():
     print("=" * 40)
 
     sent_ids = load_sent()
+    new_sent = set()
     new_games = []
 
     print("\n--- Steam ---")
     try:
         games = get_steam_freebies()
-        before = len(new_games)
         for g in games:
             gid = f"steam_{g['id']}"
+            new_sent.add(gid)
             if gid not in sent_ids:
-                sent_ids.add(gid)
                 new_games.append(g)
-        print(f"  Total: {len(games)}, New: {len(new_games) - before}")
+        print(f"  Total: {len(games)}")
     except Exception as e:
         print(f"  Error: {e}")
+        new_sent |= {s for s in sent_ids if s.startswith("steam_")}
 
     print("\n--- Epic Games ---")
     try:
         games = get_epic_freebies()
-        before = len(new_games)
         for g in games:
             gid = f"epic_{g['id']}"
+            new_sent.add(gid)
             if gid not in sent_ids:
-                sent_ids.add(gid)
                 new_games.append(g)
-        print(f"  Total: {len(games)}, New: {len(new_games) - before}")
+        print(f"  Total: {len(games)}")
     except Exception as e:
         print(f"  Error: {e}")
+        new_sent |= {s for s in sent_ids if s.startswith("epic_")}
 
-    if not new_games:
-        print("\nNo new free games found.")
-        return
+    if new_games:
+        print(f"\nSending {len(new_games)} new game(s) to Telegram...")
+        for game in new_games:
+            send_game_notification(game)
 
-    print(f"\nSending {len(new_games)} new game(s) to Telegram...")
-    for game in new_games:
-        send_game_notification(game)
-
-    save_sent(sent_ids)
-    print("\nDone!")
+    save_sent(new_sent)
+    print(f"\nDone! Saved {len(new_sent)} active IDs")
 
 
 if __name__ == "__main__":
