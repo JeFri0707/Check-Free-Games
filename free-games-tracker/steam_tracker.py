@@ -98,13 +98,14 @@ def get_steam_freebies():
 
     ids_list = sorted(candidate_ids)
 
-    for i in range(0, len(ids_list), 50):
-        batch = ids_list[i : i + 50]
-        ids_param = ",".join(batch)
+    for i in range(0, len(ids_list), 20):
+        batch = ids_list[i : i + 20]
         try:
+            params = {"cc": "us", "l": "english"}
+            params["appids"] = batch
             resp = requests.get(
                 API_DETAILS,
-                params={"appids": ids_param, "cc": "us", "l": "english"},
+                params=params,
                 headers=HEADERS,
                 timeout=30,
             )

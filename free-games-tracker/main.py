@@ -4,7 +4,7 @@ from pathlib import Path
 
 from steam_tracker import get_steam_freebies
 from epic_tracker import get_epic_freebies
-from telegram_sender import send_text, send_game_notification
+from telegram_sender import send_game_notification
 
 DATA_FILE = Path(__file__).parent / "sent_games.json"
 
@@ -32,8 +32,6 @@ def main():
     print("=" * 40)
     print("  Free Games Tracker")
     print("=" * 40)
-
-    send_text("🔍 <b>Проверка бесплатных игр...</b>\nИщу акции в Steam и Epic Games")
 
     sent_ids = load_sent()
     new_games = []
@@ -66,7 +64,6 @@ def main():
 
     if not new_games:
         print("\nNo new free games found.")
-        send_text("✅ <b>Проверка завершена</b>\nНовых бесплатных игр не найдено")
         return
 
     print(f"\nSending {len(new_games)} new game(s) to Telegram...")
@@ -74,7 +71,6 @@ def main():
         send_game_notification(game)
 
     save_sent(sent_ids)
-    send_text(f"✅ <b>Проверка завершена</b>\nНайдено новых игр: {len(new_games)}")
     print("\nDone!")
 
 
