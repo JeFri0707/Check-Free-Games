@@ -1,4 +1,5 @@
 import requests
+import re
 from datetime import datetime, timezone, timedelta
 
 API_CATEGORIES = "https://store.steampowered.com/api/featuredcategories"
@@ -11,6 +12,12 @@ MSK = timezone(timedelta(hours=3))
 
 KNOWN_FREE_IDS = ["3587490"]
 
+RUS_MONTHS = {
+    "января": 1, "февраля": 2, "марта": 3, "апреля": 4,
+    "мая": 5, "июня": 6, "июля": 7, "августа": 8,
+    "сентября": 9, "октября": 10, "ноября": 11, "декабря": 12,
+}
+
 
 def format_date(ts):
     if ts and ts > 0:
@@ -19,6 +26,21 @@ def format_date(ts):
             .astimezone(MSK)
             .strftime("%d.%m.%Y")
         )
+    return None
+
+
+def parse_steam_page_date(html):
+    m = re.search(r'бесплатно до (\d{1,2})\s+([а-яё]+)\s+в\s+(\d{1,2}:\d{2})', html, re.IGNORECASE)
+    if m:
+        day = int(m.group(1))
+        month_name = m.group(2).lower()
+        month = RUS_MONTHS.get(month_name)
+        if month:
+            now = datetime.now(MSK)
+            year = now.year
+            if month < now.month:
+                year += 1
+            return f"{day:02d}.{month:02d}.{year}"
     return None
 
 
@@ -46,6 +68,18 @@ def check_app(session, appid, end_date=None):
         initial = price.get("initial", 0)
         if not initial or initial <= 0:
             return None
+
+        if not end_date:
+            try:
+                page = session.get(
+                    STORE_URL.format(appid),
+                    headers={**HEADERS, "Accept-Language": "ru-RU,ru;q=0.9"},
+                    timeout=10,
+                )
+                end_date = parse_steam_page_date(page.text)
+            except Exception:
+                pass
+
         return {
             "store": "Steam",
             "id": appid,
