@@ -6,25 +6,6 @@ API_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}"
 STORE_ICONS = {"Steam": "🎮", "Epic Games": "🟣"}
 
 
-def send_text(message):
-    try:
-        resp = requests.post(
-            f"{API_URL}/sendMessage",
-            json={
-                "chat_id": TELEGRAM_CHAT_ID,
-                "text": message,
-                "parse_mode": "HTML",
-            },
-            timeout=15,
-        )
-        if not resp.ok:
-            print(f"  Telegram error: {resp.text}")
-        else:
-            print(f"  Status message sent")
-    except Exception as e:
-        print(f"  Failed to send status: {e}")
-
-
 def send_game_notification(game):
     icon = STORE_ICONS.get(game["store"], "🎯")
 
@@ -39,19 +20,31 @@ def send_game_notification(game):
     text += f'\n{game["url"]}'
 
     try:
-        resp = requests.post(
-            f"{API_URL}/sendMessage",
-            json={
-                "chat_id": TELEGRAM_CHAT_ID,
-                "text": text,
-                "parse_mode": "HTML",
-                "link_preview_options": {
-                    "url": game["url"],
-                    "prefer_large_media": True,
+        if game["store"] == "Epic Games" and game.get("image"):
+            resp = requests.post(
+                f"{API_URL}/sendPhoto",
+                json={
+                    "chat_id": TELEGRAM_CHAT_ID,
+                    "photo": game["image"],
+                    "caption": text,
+                    "parse_mode": "HTML",
                 },
-            },
-            timeout=15,
-        )
+                timeout=15,
+            )
+        else:
+            resp = requests.post(
+                f"{API_URL}/sendMessage",
+                json={
+                    "chat_id": TELEGRAM_CHAT_ID,
+                    "text": text,
+                    "parse_mode": "HTML",
+                    "link_preview_options": {
+                        "url": game["url"],
+                        "prefer_large_media": True,
+                    },
+                },
+                timeout=15,
+            )
 
         if not resp.ok:
             print(f"  Telegram error for '{game['name']}': {resp.text}")

@@ -49,8 +49,16 @@ def parse_app_details(appid, data):
     }
 
 
+KNOWN_FREE_IDS = [
+    "3587490",
+]
+
+
 def collect_candidate_ids():
     ids = set()
+
+    for known_id in KNOWN_FREE_IDS:
+        ids.add(known_id)
 
     try:
         resp = requests.get(
