@@ -4,6 +4,10 @@ on:
   schedule:
     - cron: '*/15 * * * *'
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/free-games.yml'
 
 jobs:
   check:
@@ -36,6 +40,6 @@ jobs:
           if git diff --staged --quiet; then
             echo "No changes to commit"
           else
-            git commit -m "Update sent games [skip ci]"
+            git commit -m "Update sent games"
             git push
           fi
