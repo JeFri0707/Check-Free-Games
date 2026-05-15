@@ -10,7 +10,7 @@ STORE_URL = "https://store.steampowered.com/app/{}"
 HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
 MSK = timezone(timedelta(hours=3))
 
-KNOWN_FREE_IDS = ["3587490"]
+KNOWN_FREE_IDS = ["3587490", "3343840"]
 
 RUS_MONTHS = {
     "января": 1, "февраля": 2, "марта": 3, "апреля": 4,
