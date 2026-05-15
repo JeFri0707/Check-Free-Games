@@ -17,7 +17,7 @@ def parse_date(date_str):
     try:
         s = date_str.replace("Z", "+00:00")
         dt = datetime.fromisoformat(s)
-        return dt.astimezone(MSK).strftime("%d.%m.%Y %H:%M")
+        return dt.astimezone(MSK).strftime("%d.%m.%Y")
     except Exception:
         return None
 

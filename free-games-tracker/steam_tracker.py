@@ -4,31 +4,25 @@ from datetime import datetime, timezone, timedelta
 API_CATEGORIES = "https://store.steampowered.com/api/featuredcategories"
 API_SEARCH = "https://store.steampowered.com/search/results/"
 API_DETAILS = "https://store.steampowered.com/api/appdetails"
-
 STORE_URL = "https://store.steampowered.com/app/{}"
 
-HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-}
-
+HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
 MSK = timezone(timedelta(hours=3))
 
-KNOWN_FREE_IDS = [
-    "3587490",
-]
+KNOWN_FREE_IDS = ["3587490"]
 
 
-def format_end_date(end_ts):
-    if end_ts and end_ts > 0:
+def format_date(ts):
+    if ts and ts > 0:
         return (
-            datetime.fromtimestamp(end_ts, tz=timezone.utc)
+            datetime.fromtimestamp(ts, tz=timezone.utc)
             .astimezone(MSK)
-            .strftime("%d.%m.%Y %H:%M")
+            .strftime("%d.%m.%Y")
         )
     return None
 
 
-def check_app(session, appid):
+def check_app(session, appid, end_date=None):
     try:
         r = session.get(
             API_DETAILS,
@@ -58,18 +52,18 @@ def check_app(session, appid):
             "name": app.get("name", "Unknown"),
             "url": STORE_URL.format(appid),
             "image": app.get("header_image", ""),
-            "end_date": None,
+            "end_date": end_date,
             "original_price": initial,
         }
     except Exception:
         return None
 
 
-def collect_candidate_ids():
-    ids = set()
+def collect_candidates():
+    candidates = {}
 
     for known_id in KNOWN_FREE_IDS:
-        ids.add(known_id)
+        candidates[known_id] = None
 
     try:
         resp = requests.get(
@@ -85,7 +79,10 @@ def collect_candidate_ids():
                 for item in cat_data["items"]:
                     item_id = item.get("id")
                     if item_id:
-                        ids.add(str(item_id))
+                        end_ts = item.get("discount_expiration")
+                        sid = str(item_id)
+                        if sid not in candidates:
+                            candidates[sid] = format_date(end_ts)
     except Exception as e:
         print(f"  featuredcategories error: {e}")
 
@@ -101,26 +98,27 @@ def collect_candidate_ids():
         for item in data.get("items", []):
             item_id = item.get("id")
             if item_id:
-                ids.add(str(item_id))
+                sid = str(item_id)
+                if sid not in candidates:
+                    candidates[sid] = None
     except Exception as e:
         print(f"  search API error: {e}")
 
-    return ids
+    return candidates
 
 
 def get_steam_freebies():
     games = []
-    candidate_ids = collect_candidate_ids()
+    candidates = collect_candidates()
 
-    if not candidate_ids:
+    if not candidates:
         return games
 
     session = requests.Session()
     session.headers.update(HEADERS)
 
-    ids_list = sorted(candidate_ids)
-    for appid in ids_list:
-        game = check_app(session, appid)
+    for appid, end_date in sorted(candidates.items()):
+        game = check_app(session, appid, end_date)
         if game:
             games.append(game)
 
