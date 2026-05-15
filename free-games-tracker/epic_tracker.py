@@ -54,9 +54,14 @@ def get_epic_freebies():
                 price_info = item.get("price", {}).get("totalPrice", {})
                 orig_price = price_info.get("originalPrice", 0)
                 disc_price = price_info.get("discountPrice", 0)
+                disc_pct = offer.get("discountSetting", {}).get("discountPercentage")
 
-                if orig_price > 0 and disc_price == 0:
+                if disc_pct == 0 and orig_price > 0:
                     is_free = True
+                elif orig_price > 0 and disc_price == 0:
+                    is_free = True
+
+                if is_free:
                     end = offer.get("endDate")
                     if end:
                         parsed = parse_date(end)
