@@ -7,7 +7,7 @@ API_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}"
 def send_game_notification(game):
     store = game["store"]
 
-    text = f'-----{store}-----\n'
+    text = f'\u2501\u2501\u2501 {store} \u2501\u2501\u2501\n'
     text += f'{game["name"]}\n'
 
     if game.get("end_date"):
