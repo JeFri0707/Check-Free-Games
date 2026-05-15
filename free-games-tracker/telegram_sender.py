@@ -6,6 +6,25 @@ API_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}"
 STORE_ICONS = {"Steam": "🎮", "Epic Games": "🟣"}
 
 
+def send_text(message):
+    try:
+        resp = requests.post(
+            f"{API_URL}/sendMessage",
+            json={
+                "chat_id": TELEGRAM_CHAT_ID,
+                "text": message,
+                "parse_mode": "HTML",
+            },
+            timeout=15,
+        )
+        if not resp.ok:
+            print(f"  Telegram error: {resp.text}")
+        else:
+            print(f"  Status message sent")
+    except Exception as e:
+        print(f"  Failed to send status: {e}")
+
+
 def send_game_notification(game):
     icon = STORE_ICONS.get(game["store"], "🎯")
 
