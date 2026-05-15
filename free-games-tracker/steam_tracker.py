@@ -13,6 +13,10 @@ HEADERS = {
 
 MSK = timezone(timedelta(hours=3))
 
+KNOWN_FREE_IDS = [
+    "3587490",
+]
+
 
 def format_end_date(end_ts):
     if end_ts and end_ts > 0:
@@ -24,34 +28,41 @@ def format_end_date(end_ts):
     return None
 
 
-def parse_app_details(appid, data):
-    if not data.get("success"):
+def check_app(session, appid):
+    try:
+        r = session.get(
+            API_DETAILS,
+            params={"appids": appid, "cc": "us", "l": "english"},
+            headers=HEADERS,
+            timeout=10,
+        )
+        if r.status_code != 200:
+            return None
+        data = r.json().get(appid)
+        if not data or not data.get("success"):
+            return None
+        app = data.get("data", {})
+        if app.get("type") != "game":
+            return None
+        price = app.get("price_overview")
+        if not price:
+            return None
+        if price.get("discount_percent") != 100:
+            return None
+        initial = price.get("initial", 0)
+        if not initial or initial <= 0:
+            return None
+        return {
+            "store": "Steam",
+            "id": appid,
+            "name": app.get("name", "Unknown"),
+            "url": STORE_URL.format(appid),
+            "image": app.get("header_image", ""),
+            "end_date": None,
+            "original_price": initial,
+        }
+    except Exception:
         return None
-    app = data.get("data", {})
-    if app.get("type") != "game":
-        return None
-    price = app.get("price_overview")
-    if not price:
-        return None
-    if price.get("discount_percent") != 100:
-        return None
-    initial = price.get("initial", 0)
-    if not initial or initial <= 0:
-        return None
-    return {
-        "store": "Steam",
-        "id": str(appid),
-        "name": app.get("name", "Unknown"),
-        "url": STORE_URL.format(appid),
-        "image": app.get("header_image", ""),
-        "end_date": None,
-        "original_price": initial,
-    }
-
-
-KNOWN_FREE_IDS = [
-    "3587490",
-]
 
 
 def collect_candidate_ids():
@@ -104,29 +115,14 @@ def get_steam_freebies():
     if not candidate_ids:
         return games
 
+    session = requests.Session()
+    session.headers.update(HEADERS)
+
     ids_list = sorted(candidate_ids)
+    for appid in ids_list:
+        game = check_app(session, appid)
+        if game:
+            games.append(game)
 
-    for i in range(0, len(ids_list), 20):
-        batch = ids_list[i : i + 20]
-        try:
-            params = {"cc": "us", "l": "english"}
-            params["appids"] = batch
-            resp = requests.get(
-                API_DETAILS,
-                params=params,
-                headers=HEADERS,
-                timeout=30,
-            )
-            resp.raise_for_status()
-            data = resp.json()
-            for appid_str in batch:
-                app_data = data.get(appid_str)
-                if not app_data:
-                    continue
-                game = parse_app_details(appid_str, app_data)
-                if game:
-                    games.append(game)
-        except Exception as e:
-            print(f"  appdetails error (batch {i}): {e}")
-
+    session.close()
     return games
