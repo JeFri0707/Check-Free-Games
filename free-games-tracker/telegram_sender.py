@@ -3,19 +3,15 @@ from config import TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
 
 API_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}"
 
-STORE_ICONS = {"Steam": "🎮", "Epic Games": "🟣"}
-
 
 def send_game_notification(game):
-    icon = STORE_ICONS.get(game["store"], "🎯")
+    store = game["store"]
 
-    text = (
-        f"{icon} <b>{game['store']}: {game['name']}</b>\n\n"
-        f"💰 <b>Бесплатно!</b> Была платной, теперь со скидкой 100%\n"
-    )
+    text = f'-----{store}-----\n'
+    text += f'{game["name"]}\n'
 
     if game.get("end_date"):
-        text += f"📅 Раздача до: {game['end_date']} МСК\n"
+        text += f'По: {game["end_date"]}\n'
 
     text += f'\n{game["url"]}'
 
@@ -25,7 +21,6 @@ def send_game_notification(game):
             json={
                 "chat_id": TELEGRAM_CHAT_ID,
                 "text": text,
-                "parse_mode": "HTML",
                 "link_preview_options": {
                     "url": game["url"],
                     "prefer_large_media": True,
