@@ -20,31 +20,19 @@ def send_game_notification(game):
     text += f'\n{game["url"]}'
 
     try:
-        if game["store"] == "Epic Games" and game.get("image"):
-            resp = requests.post(
-                f"{API_URL}/sendPhoto",
-                json={
-                    "chat_id": TELEGRAM_CHAT_ID,
-                    "photo": game["image"],
-                    "caption": text,
-                    "parse_mode": "HTML",
+        resp = requests.post(
+            f"{API_URL}/sendMessage",
+            json={
+                "chat_id": TELEGRAM_CHAT_ID,
+                "text": text,
+                "parse_mode": "HTML",
+                "link_preview_options": {
+                    "url": game["url"],
+                    "prefer_large_media": True,
                 },
-                timeout=15,
-            )
-        else:
-            resp = requests.post(
-                f"{API_URL}/sendMessage",
-                json={
-                    "chat_id": TELEGRAM_CHAT_ID,
-                    "text": text,
-                    "parse_mode": "HTML",
-                    "link_preview_options": {
-                        "url": game["url"],
-                        "prefer_large_media": True,
-                    },
-                },
-                timeout=15,
-            )
+            },
+            timeout=15,
+        )
 
         if not resp.ok:
             print(f"  Telegram error for '{game['name']}': {resp.text}")
