@@ -1,4 +1,8 @@
 {
-  "sent_ids": [],
-  "last_updated": null
+  "sent_ids": [
+    "epic_190cb955f17f48dcb8576aa8288c887f",
+    "epic_73a4416d5cdb42f682d504fdf48e987b",
+    "steam_3587490"
+  ],
+  "last_updated": "2026-05-15T16:54:57.254649+00:00"
 }
