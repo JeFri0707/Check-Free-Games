@@ -21,10 +21,6 @@ def send_game_notification(game):
             json={
                 "chat_id": TELEGRAM_CHAT_ID,
                 "text": text,
-                "link_preview_options": {
-                    "url": game["url"],
-                    "prefer_large_media": True,
-                },
             },
             timeout=15,
         )
