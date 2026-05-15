@@ -1,6 +1,8 @@
+import json
 import requests
 import re
 from datetime import datetime, timezone, timedelta
+from pathlib import Path
 
 API_CATEGORIES = "https://store.steampowered.com/api/featuredcategories"
 API_SEARCH = "https://store.steampowered.com/search/results/"
@@ -11,6 +13,8 @@ HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/
 MSK = timezone(timedelta(hours=3))
 
 KNOWN_FREE_IDS = ["3587490", "3343840"]
+SCAN_CHUNK = 200
+SCAN_FILE = Path(__file__).parent / "steam_scan_progress.json"
 
 RUS_MONTHS = {
     "января": 1, "февраля": 2, "марта": 3, "апреля": 4,
@@ -141,20 +145,126 @@ def collect_candidates():
     return candidates
 
 
-def get_steam_freebies():
-    games = []
-    candidates = collect_candidates()
+def load_scan_progress():
+    try:
+        if SCAN_FILE.exists():
+            return json.loads(SCAN_FILE.read_text()).get("last_scanned_appid", 0)
+    except Exception:
+        pass
+    return 0
 
-    if not candidates:
+
+def save_scan_progress(appid):
+    SCAN_FILE.write_text(json.dumps({"last_scanned_appid": appid}, indent=2))
+
+
+def find_max_appid(session):
+    low, high = 1, 8000000
+    max_valid = 0
+    while low <= high:
+        mid = (low + high) // 2
+        try:
+            r = session.get(
+                API_DETAILS,
+                params={"appids": mid, "cc": "us", "l": "english"},
+                headers=HEADERS,
+                timeout=10,
+            )
+            if r.json().get(str(mid), {}).get("success"):
+                max_valid = mid
+                low = mid + 1
+            else:
+                high = mid - 1
+        except Exception:
+            high = mid - 1
+    return max_valid
+
+
+def scan_new_apps(session):
+    games = []
+    last_scanned = load_scan_progress()
+    try:
+        current_max = find_max_appid(session)
+    except Exception as e:
+        print(f"  scan find_max error: {e}")
         return games
 
+    if last_scanned == 0:
+        last_scanned = max(0, current_max - 500)
+        save_scan_progress(last_scanned)
+        print(f"  Initial scan offset: {last_scanned}")
+
+    if last_scanned >= current_max:
+        return games
+
+    end = min(last_scanned + SCAN_CHUNK, current_max)
+    found = 0
+
+    for appid in range(last_scanned + 1, end + 1):
+        try:
+            r = session.get(
+                API_DETAILS,
+                params={"appids": appid, "cc": "us", "l": "english"},
+                headers=HEADERS,
+                timeout=8,
+            )
+            info = r.json().get(str(appid), {})
+            if not info.get("success"):
+                continue
+            app = info.get("data", {})
+            if app.get("type") != "game":
+                continue
+            price = app.get("price_overview")
+            if not price or price.get("discount_percent") != 100:
+                continue
+            initial = price.get("initial", 0)
+            if not initial or initial <= 0:
+                continue
+
+            end_date = None
+            try:
+                page = session.get(
+                    STORE_URL.format(appid),
+                    headers={**HEADERS, "Accept-Language": "ru-RU,ru;q=0.9"},
+                    timeout=10,
+                )
+                end_date = parse_steam_page_date(page.text)
+            except Exception:
+                pass
+
+            games.append({
+                "store": "Steam",
+                "id": str(appid),
+                "name": app.get("name", "Unknown"),
+                "url": STORE_URL.format(appid),
+                "image": app.get("header_image", ""),
+                "end_date": end_date,
+                "original_price": initial,
+            })
+            found += 1
+            print(f"  Scanned & found: {app.get('name', 'Unknown')} ({appid})")
+        except Exception:
+            continue
+
+    save_scan_progress(end)
+    print(f"  Scanned app IDs {last_scanned + 1}-{end}, found {found} free game(s)")
+    return games
+
+
+def get_steam_freebies():
+    games = []
     session = requests.Session()
     session.headers.update(HEADERS)
+
+    candidates = collect_candidates()
 
     for appid, end_date in sorted(candidates.items()):
         game = check_app(session, appid, end_date)
         if game:
             games.append(game)
+
+    scanned = scan_new_apps(session)
+    games.extend(scanned)
 
     session.close()
     return games
