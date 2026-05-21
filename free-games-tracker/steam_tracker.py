@@ -13,7 +13,8 @@ HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/
 MSK = timezone(timedelta(hours=3))
 
 KNOWN_FREE_IDS = ["3587490", "3343840"]
-SCAN_CHUNK = 200
+SCAN_CHUNK = 1000
+SCAN_INITIAL_OFFSET = 5000
 SCAN_FILE = Path(__file__).parent / "steam_scan_progress.json"
 
 RUS_MONTHS = {
@@ -97,6 +98,34 @@ def check_app(session, appid, end_date=None):
         return None
 
 
+def search_free_games():
+    candidates = {}
+    try:
+        resp = requests.get(
+            API_SEARCH,
+            params={
+                "maxprice": 0,
+                "category1": 998,
+                "hide_server_choice": 1,
+                "json": 1,
+                "count": 200,
+                "cc": "us",
+                "l": "english",
+            },
+            headers=HEADERS,
+            timeout=15,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        for item in data.get("items", []):
+            item_id = item.get("id")
+            if item_id:
+                candidates[str(item_id)] = None
+    except Exception as e:
+        print(f"  free search error: {e}")
+    return candidates
+
+
 def collect_candidates():
     candidates = {}
 
@@ -141,6 +170,11 @@ def collect_candidates():
                     candidates[sid] = None
     except Exception as e:
         print(f"  search API error: {e}")
+
+    free_candidates = search_free_games()
+    for appid, end_date in free_candidates.items():
+        if appid not in candidates:
+            candidates[appid] = end_date
 
     return candidates
 
@@ -190,7 +224,7 @@ def scan_new_apps(session):
         return games
 
     if last_scanned == 0:
-        last_scanned = max(0, current_max - 500)
+        last_scanned = max(0, current_max - SCAN_INITIAL_OFFSET)
         save_scan_progress(last_scanned)
         print(f"  Initial scan offset: {last_scanned}")
 
