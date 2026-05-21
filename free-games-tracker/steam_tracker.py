@@ -63,13 +63,17 @@ def check_app(session, appid, end_date=None):
         if not data or not data.get("success"):
             return None
         app = data.get("data", {})
-        if app.get("type") != "game":
-            return None
         price = app.get("price_overview")
         if not price:
             return None
-        if price.get("discount_percent") != 100:
+
+        is_free_promo = price.get("discount_percent") == 100
+        if not is_free_promo and app.get("is_free") and price.get("initial", 0) > 0:
+            is_free_promo = True
+
+        if not is_free_promo:
             return None
+
         initial = price.get("initial", 0)
         if not initial or initial <= 0:
             return None
@@ -167,6 +171,34 @@ def search_specials():
     return candidates
 
 
+def search_free_specials():
+    candidates = {}
+    try:
+        resp = requests.get(
+            API_SEARCH,
+            params={
+                "maxprice": "free",
+                "specials": 1,
+                "hide_server_choice": 1,
+                "json": 1,
+                "count": 200,
+                "cc": "us",
+                "l": "english",
+            },
+            headers=HEADERS,
+            timeout=15,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        for item in data.get("items", []):
+            appid = extract_app_id(item)
+            if appid:
+                candidates[appid] = None
+    except Exception as e:
+        print(f"  free+specials search error: {e}")
+    return candidates
+
+
 def collect_candidates():
     candidates = {}
 
@@ -198,6 +230,10 @@ def collect_candidates():
             candidates[appid] = None
 
     for appid in search_free_games():
+        if appid not in candidates:
+            candidates[appid] = None
+
+    for appid in search_free_specials():
         if appid not in candidates:
             candidates[appid] = None
 
@@ -271,11 +307,17 @@ def scan_new_apps(session):
             if not info.get("success"):
                 continue
             app = info.get("data", {})
-            if app.get("type") != "game":
-                continue
             price = app.get("price_overview")
-            if not price or price.get("discount_percent") != 100:
+            if not price:
                 continue
+
+            is_free_promo = price.get("discount_percent") == 100
+            if not is_free_promo and app.get("is_free") and price.get("initial", 0) > 0:
+                is_free_promo = True
+
+            if not is_free_promo:
+                continue
+
             initial = price.get("initial", 0)
             if not initial or initial <= 0:
                 continue
