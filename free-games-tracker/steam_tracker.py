@@ -98,6 +98,20 @@ def check_app(session, appid, end_date=None):
         return None
 
 
+LOGO_ID_PATTERN = re.compile(r"steam/apps/(\d+)")
+
+
+def extract_app_id(item):
+    raw = item.get("id")
+    if raw:
+        return str(raw)
+    logo = item.get("logo") or ""
+    m = LOGO_ID_PATTERN.search(logo)
+    if m:
+        return m.group(1)
+    return None
+
+
 def search_free_games():
     candidates = {}
     try:
@@ -118,11 +132,38 @@ def search_free_games():
         resp.raise_for_status()
         data = resp.json()
         for item in data.get("items", []):
-            item_id = item.get("id")
-            if item_id:
-                candidates[str(item_id)] = None
+            appid = extract_app_id(item)
+            if appid:
+                candidates[appid] = None
     except Exception as e:
         print(f"  free search error: {e}")
+    return candidates
+
+
+def search_specials():
+    candidates = {}
+    try:
+        resp = requests.get(
+            API_SEARCH,
+            params={
+                "specials": 1,
+                "hide_server_choice": 1,
+                "json": 1,
+                "count": 200,
+                "cc": "us",
+                "l": "english",
+            },
+            headers=HEADERS,
+            timeout=15,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        for item in data.get("items", []):
+            appid = extract_app_id(item)
+            if appid:
+                candidates[appid] = None
+    except Exception as e:
+        print(f"  specials search error: {e}")
     return candidates
 
 
@@ -144,37 +185,21 @@ def collect_candidates():
         for cat_name, cat_data in data.items():
             if isinstance(cat_data, dict) and "items" in cat_data:
                 for item in cat_data["items"]:
-                    item_id = item.get("id")
-                    if item_id:
+                    appid = extract_app_id(item)
+                    if appid:
                         end_ts = item.get("discount_expiration")
-                        sid = str(item_id)
-                        if sid not in candidates:
-                            candidates[sid] = format_date(end_ts)
+                        if appid not in candidates:
+                            candidates[appid] = format_date(end_ts)
     except Exception as e:
         print(f"  featuredcategories error: {e}")
 
-    try:
-        resp = requests.get(
-            API_SEARCH,
-            params={"specials": 1, "json": 1, "count": 200, "cc": "us", "l": "english"},
-            headers=HEADERS,
-            timeout=15,
-        )
-        resp.raise_for_status()
-        data = resp.json()
-        for item in data.get("items", []):
-            item_id = item.get("id")
-            if item_id:
-                sid = str(item_id)
-                if sid not in candidates:
-                    candidates[sid] = None
-    except Exception as e:
-        print(f"  search API error: {e}")
-
-    free_candidates = search_free_games()
-    for appid, end_date in free_candidates.items():
+    for appid in search_specials():
         if appid not in candidates:
-            candidates[appid] = end_date
+            candidates[appid] = None
+
+    for appid in search_free_games():
+        if appid not in candidates:
+            candidates[appid] = None
 
     return candidates
 
