@@ -12,7 +12,7 @@ STORE_URL = "https://store.steampowered.com/app/{}"
 HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
 MSK = timezone(timedelta(hours=3))
 
-KNOWN_FREE_IDS = ["3587490", "3343840"]
+KNOWN_FREE_IDS = ["3587490", "3343840", "1180660"]
 SCAN_CHUNK = 1000
 SCAN_INITIAL_OFFSET = 5000
 SCAN_FILE = Path(__file__).parent / "steam_scan_progress.json"
@@ -233,10 +233,6 @@ def collect_candidates():
         if appid not in candidates:
             candidates[appid] = None
 
-    for appid in search_free_specials():
-        if appid not in candidates:
-            candidates[appid] = None
-
     return candidates
 
 
@@ -363,6 +359,34 @@ def get_steam_freebies():
         game = check_app(session, appid, end_date)
         if game:
             games.append(game)
+
+    free_special_ids = search_free_specials()
+    for appid in free_special_ids:
+        if appid in {g["id"] for g in games}:
+            continue
+        try:
+            r = session.get(
+                API_DETAILS,
+                params={"appids": appid, "cc": "us", "l": "english"},
+                headers=HEADERS,
+                timeout=10,
+            )
+            if r.status_code == 200:
+                data = r.json().get(appid)
+                if data and data.get("success"):
+                    app = data.get("data", {})
+                    if app.get("is_free"):
+                        games.append({
+                            "store": "Steam",
+                            "id": appid,
+                            "name": app.get("name", "Unknown"),
+                            "url": STORE_URL.format(appid),
+                            "image": app.get("header_image", ""),
+                            "end_date": None,
+                            "original_price": 0,
+                        })
+        except Exception:
+            pass
 
     scanned = scan_new_apps(session)
     games.extend(scanned)

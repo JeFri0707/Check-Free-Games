@@ -65,6 +65,14 @@ def get_epic_freebies():
 
         slug = item.get("productSlug")
         if not slug:
+            mappings = item.get("catalogNs", {}).get("mappings", [])
+            if mappings:
+                slug = mappings[0].get("pageSlug")
+            if not slug:
+                mappings = item.get("offerMappings", [])
+                if mappings:
+                    slug = mappings[0].get("pageSlug")
+        if not slug:
             continue
 
         image = ""
