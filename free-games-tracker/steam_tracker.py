@@ -10,6 +10,7 @@ API_DETAILS = "https://store.steampowered.com/api/appdetails"
 STORE_URL = "https://store.steampowered.com/app/{}"
 
 HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+COOKIES = {"birthtime": "568022401", "mature_content": "1"}
 MSK = timezone(timedelta(hours=3))
 
 KNOWN_FREE_IDS = ["3587490", "3343840", "1180660"]
@@ -21,6 +22,11 @@ RUS_MONTHS = {
     "января": 1, "февраля": 2, "марта": 3, "апреля": 4,
     "мая": 5, "июня": 6, "июля": 7, "августа": 8,
     "сентября": 9, "октября": 10, "ноября": 11, "декабря": 12,
+}
+ENG_MONTHS = {
+    "jan": 1, "feb": 2, "mar": 3, "apr": 4,
+    "may": 5, "jun": 6, "jul": 7, "aug": 8,
+    "sep": 9, "oct": 10, "nov": 11, "dec": 12,
 }
 
 
@@ -40,6 +46,17 @@ def parse_steam_page_date(html):
         day = int(m.group(1))
         month_name = m.group(2).lower()
         month = RUS_MONTHS.get(month_name)
+        if month:
+            now = datetime.now(MSK)
+            year = now.year
+            if month < now.month:
+                year += 1
+            return f"{day:02d}.{month:02d}.{year}"
+    m = re.search(r'before\s+(\d{1,2})\s+(\w{3})\s+@\s+(\d{1,2}:\d{2})', html, re.IGNORECASE)
+    if m:
+        day = int(m.group(1))
+        month_name = m.group(2).lower()[:3]
+        month = ENG_MONTHS.get(month_name)
         if month:
             now = datetime.now(MSK)
             year = now.year
@@ -83,9 +100,18 @@ def check_app(session, appid, end_date=None):
                 page = session.get(
                     STORE_URL.format(appid),
                     headers={**HEADERS, "Accept-Language": "ru-RU,ru;q=0.9"},
+                    cookies=COOKIES,
                     timeout=10,
                 )
                 end_date = parse_steam_page_date(page.text)
+                if not end_date:
+                    page = session.get(
+                        STORE_URL.format(appid),
+                        headers={**HEADERS, "Accept-Language": "en-US,en;q=0.9"},
+                        cookies=COOKIES,
+                        timeout=10,
+                    )
+                    end_date = parse_steam_page_date(page.text)
             except Exception:
                 pass
 
@@ -323,9 +349,18 @@ def scan_new_apps(session):
                 page = session.get(
                     STORE_URL.format(appid),
                     headers={**HEADERS, "Accept-Language": "ru-RU,ru;q=0.9"},
+                    cookies=COOKIES,
                     timeout=10,
                 )
                 end_date = parse_steam_page_date(page.text)
+                if not end_date:
+                    page = session.get(
+                        STORE_URL.format(appid),
+                        headers={**HEADERS, "Accept-Language": "en-US,en;q=0.9"},
+                        cookies=COOKIES,
+                        timeout=10,
+                    )
+                    end_date = parse_steam_page_date(page.text)
             except Exception:
                 pass
 
@@ -376,13 +411,32 @@ def get_steam_freebies():
                 if data and data.get("success"):
                     app = data.get("data", {})
                     if app.get("is_free"):
+                        end_date = None
+                        try:
+                            page = session.get(
+                                STORE_URL.format(appid),
+                                headers={**HEADERS, "Accept-Language": "ru-RU,ru;q=0.9"},
+                                cookies=COOKIES,
+                                timeout=10,
+                            )
+                            end_date = parse_steam_page_date(page.text)
+                            if not end_date:
+                                page = session.get(
+                                    STORE_URL.format(appid),
+                                    headers={**HEADERS, "Accept-Language": "en-US,en;q=0.9"},
+                                    cookies=COOKIES,
+                                    timeout=10,
+                                )
+                                end_date = parse_steam_page_date(page.text)
+                        except Exception:
+                            pass
                         games.append({
                             "store": "Steam",
                             "id": appid,
                             "name": app.get("name", "Unknown"),
                             "url": STORE_URL.format(appid),
                             "image": app.get("header_image", ""),
-                            "end_date": None,
+                            "end_date": end_date,
                             "original_price": 0,
                         })
         except Exception:
