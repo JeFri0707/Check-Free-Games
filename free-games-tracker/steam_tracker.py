@@ -106,7 +106,7 @@ def check_app(session, appid, end_date=None):
                 end_date = parse_steam_page_date(page.text)
                 if not end_date:
                     page = session.get(
-                        STORE_URL.format(appid),
+                        STORE_URL.format(appid) + "?l=english",
                         headers={**HEADERS, "Accept-Language": "en-US,en;q=0.9"},
                         cookies=COOKIES,
                         timeout=10,
@@ -219,7 +219,8 @@ def search_free_specials():
         for item in data.get("items", []):
             appid = extract_app_id(item)
             if appid:
-                candidates[appid] = None
+                end_ts = item.get("discount_expiration")
+                candidates[appid] = format_date(end_ts)
     except Exception as e:
         print(f"  free+specials search error: {e}")
     return candidates
@@ -355,7 +356,7 @@ def scan_new_apps(session):
                 end_date = parse_steam_page_date(page.text)
                 if not end_date:
                     page = session.get(
-                        STORE_URL.format(appid),
+                        STORE_URL.format(appid) + "?l=english",
                         headers={**HEADERS, "Accept-Language": "en-US,en;q=0.9"},
                         cookies=COOKIES,
                         timeout=10,
@@ -387,6 +388,7 @@ def get_steam_freebies():
     games = []
     session = requests.Session()
     session.headers.update(HEADERS)
+    session.cookies.update(COOKIES)
 
     candidates = collect_candidates()
 
@@ -396,7 +398,7 @@ def get_steam_freebies():
             games.append(game)
 
     free_special_ids = search_free_specials()
-    for appid in free_special_ids:
+    for appid, default_end in free_special_ids.items():
         if appid in {g["id"] for g in games}:
             continue
         try:
@@ -411,7 +413,7 @@ def get_steam_freebies():
                 if data and data.get("success"):
                     app = data.get("data", {})
                     if app.get("is_free"):
-                        end_date = None
+                        end_date = default_end
                         try:
                             page = session.get(
                                 STORE_URL.format(appid),
@@ -419,15 +421,15 @@ def get_steam_freebies():
                                 cookies=COOKIES,
                                 timeout=10,
                             )
-                            end_date = parse_steam_page_date(page.text)
+                            end_date = parse_steam_page_date(page.text) or end_date
                             if not end_date:
                                 page = session.get(
-                                    STORE_URL.format(appid),
+                                    STORE_URL.format(appid) + "?l=english",
                                     headers={**HEADERS, "Accept-Language": "en-US,en;q=0.9"},
                                     cookies=COOKIES,
                                     timeout=10,
                                 )
-                                end_date = parse_steam_page_date(page.text)
+                                end_date = parse_steam_page_date(page.text) or end_date
                         except Exception:
                             pass
                         games.append({
