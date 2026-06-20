@@ -63,6 +63,17 @@ def parse_steam_page_date(html):
             if month < now.month:
                 year += 1
             return f"{day:02d}.{month:02d}.{year}"
+    m = re.search(r'before\s+(\w{3})\s+(\d{1,2})\s+@\s+(\d{1,2}:\d{2})', html, re.IGNORECASE)
+    if m:
+        month_name = m.group(1).lower()[:3]
+        day = int(m.group(2))
+        month = ENG_MONTHS.get(month_name)
+        if month:
+            now = datetime.now(MSK)
+            year = now.year
+            if month < now.month:
+                year += 1
+            return f"{day:02d}.{month:02d}.{year}"
     return None
 
 
@@ -421,7 +432,6 @@ def get_steam_freebies():
                                 cookies=COOKIES,
                                 timeout=10,
                             )
-                            print(f"  DEBUG ru status={page.status_code} url={page.url} len={len(page.text)}")
                             end_date = parse_steam_page_date(page.text) or end_date
                             if not end_date:
                                 page = session.get(
@@ -430,15 +440,9 @@ def get_steam_freebies():
                                     cookies=COOKIES,
                                     timeout=10,
                                 )
-                                print(f"  DEBUG en status={page.status_code} url={page.url} len={len(page.text)}")
                                 end_date = parse_steam_page_date(page.text) or end_date
-                            if not end_date:
-                                m_before = re.search(r'(before.{0,50})', page.text, re.IGNORECASE)
-                                m_free = re.search(r'(free to keep.{0,100})', page.text, re.IGNORECASE)
-                                print(f"  DEBUG before_context: {m_before.group(1) if m_before else 'NOT FOUND'}")
-                                print(f"  DEBUG free_context: {m_free.group(1) if m_free else 'NOT FOUND'}")
-                        except Exception as e:
-                            print(f"  DEBUG store page error: {e}")
+                        except Exception:
+                            pass
                         games.append({
                             "store": "Steam",
                             "id": appid,
