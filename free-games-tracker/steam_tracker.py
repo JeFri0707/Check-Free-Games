@@ -421,6 +421,7 @@ def get_steam_freebies():
                                 cookies=COOKIES,
                                 timeout=10,
                             )
+                            print(f"  DEBUG ru status={page.status_code} url={page.url} len={len(page.text)}")
                             end_date = parse_steam_page_date(page.text) or end_date
                             if not end_date:
                                 page = session.get(
@@ -429,9 +430,16 @@ def get_steam_freebies():
                                     cookies=COOKIES,
                                     timeout=10,
                                 )
+                                print(f"  DEBUG en status={page.status_code} url={page.url} len={len(page.text)}")
                                 end_date = parse_steam_page_date(page.text) or end_date
-                        except Exception:
-                            pass
+                            if not end_date:
+                                m_ru = re.search(r'бесплатно до', page.text, re.IGNORECASE)
+                                m_en = re.search(r'before', page.text, re.IGNORECASE)
+                                has_price = 'price' in page.text[:2000].lower()
+                                print(f"  DEBUG date_found: ru={bool(m_ru)} en={bool(m_en)} has_price={has_price}")
+                                print(f"  DEBUG html_preview: {page.text[:500]}")
+                        except Exception as e:
+                            print(f"  DEBUG store page error: {e}")
                         games.append({
                             "store": "Steam",
                             "id": appid,
