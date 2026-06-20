@@ -433,11 +433,10 @@ def get_steam_freebies():
                                 print(f"  DEBUG en status={page.status_code} url={page.url} len={len(page.text)}")
                                 end_date = parse_steam_page_date(page.text) or end_date
                             if not end_date:
-                                m_ru = re.search(r'бесплатно до', page.text, re.IGNORECASE)
-                                m_en = re.search(r'before', page.text, re.IGNORECASE)
-                                has_price = 'price' in page.text[:2000].lower()
-                                print(f"  DEBUG date_found: ru={bool(m_ru)} en={bool(m_en)} has_price={has_price}")
-                                print(f"  DEBUG html_preview: {page.text[:500]}")
+                                m_before = re.search(r'(before.{0,50})', page.text, re.IGNORECASE)
+                                m_free = re.search(r'(free to keep.{0,100})', page.text, re.IGNORECASE)
+                                print(f"  DEBUG before_context: {m_before.group(1) if m_before else 'NOT FOUND'}")
+                                print(f"  DEBUG free_context: {m_free.group(1) if m_free else 'NOT FOUND'}")
                         except Exception as e:
                             print(f"  DEBUG store page error: {e}")
                         games.append({
